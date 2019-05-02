@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.202
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleConsumer", "SimpleConsumer\SimpleConsumer.csproj", "{06010B8D-B144-40F4-9471-A61FC218816E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{73D901F0-380A-4BE8-9EE5-E4DC2F661D06}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "single-node", "single-node", "{B27DEBEA-31C3-4690-80DB-DE936D822F7A}"
+	ProjectSection(SolutionItems) = preProject
+		..\tools\single-node\docker-compose.yml = ..\tools\single-node\docker-compose.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "all-in-one", "all-in-one", "{A5EF8C16-35B0-45CB-B46B-69062A7AE925}"
+	ProjectSection(SolutionItems) = preProject
+		..\tools\all-in-one\docker-compose.yml = ..\tools\all-in-one\docker-compose.yml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{06010B8D-B144-40F4-9471-A61FC218816E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{06010B8D-B144-40F4-9471-A61FC218816E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{06010B8D-B144-40F4-9471-A61FC218816E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{06010B8D-B144-40F4-9471-A61FC218816E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B27DEBEA-31C3-4690-80DB-DE936D822F7A} = {73D901F0-380A-4BE8-9EE5-E4DC2F661D06}
+		{A5EF8C16-35B0-45CB-B46B-69062A7AE925} = {73D901F0-380A-4BE8-9EE5-E4DC2F661D06}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7FD2A430-C51A-4A14-BAE6-958B1CE51AEF}
+	EndGlobalSection
+EndGlobal
