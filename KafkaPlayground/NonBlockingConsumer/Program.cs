@@ -46,7 +46,7 @@
                 cts.Cancel();
             };
 
-            await StartConsumer(NonBlockingTopic, consumerConfig, cts);
+            StartConsumer(NonBlockingTopic, consumerConfig, cts);
         }
 
         private static async Task ProduceUntilCancelled(string topic, CancellationTokenSource cts, ProducerConfig producerConfig)
@@ -80,10 +80,8 @@
             while (i < 10);
         }
 
-        private static async Task StartConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts)
+        private static void StartConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts)
         {
-            const int commitPeriod = 5;
-
             //var consumeTask = Task.Factory.StartNew(() =>
             //{
             using (var consumer =
@@ -98,9 +96,10 @@
             {
                 consumer.Subscribe(topic);
 
+                // on the first get it won't have any offsets stored since it gets the last cached offsets
                 var queryWatermarks = consumer.GetWatermarkOffsets(new TopicPartition(topic, new Partition(0)));
 
-                // here they are unset  (High: -1001, Low: -1001)
+                // here they are unset or they aren't cached  (High: -1001, Low: -1001)
                 Console.WriteLine($"Before Consumer and assigning offsets Watermark Offsets: High -> {queryWatermarks.High.Value} || Low -> {queryWatermarks.Low.Value}");
                 try
                 {
