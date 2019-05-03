@@ -8,10 +8,16 @@
 
     using Confluent.Kafka;
 
+    using Newtonsoft.Json;
+
+    using StackExchange.Redis;
+
     internal static class Program
     {
         private static async Task Main(string[] args)
         {
+            var redis = ConnectionMultiplexer.Connect("localhost");
+
             const string NonBlockingTopic = "non-block-topic";
             CancellationTokenSource cts = new CancellationTokenSource();
             var consumerConfig = new ConsumerConfig
@@ -46,7 +52,7 @@
                 cts.Cancel();
             };
 
-            StartConsumer(NonBlockingTopic, consumerConfig, cts);
+            StartConsumer(NonBlockingTopic, consumerConfig, cts, redis);
         }
 
         private static async Task ProduceUntilCancelled(string topic, CancellationTokenSource cts, ProducerConfig producerConfig)
@@ -80,10 +86,10 @@
             while (i < 10);
         }
 
-        private static void StartConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts)
+        private static void StartConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts, ConnectionMultiplexer redis)
         {
-            //var consumeTask = Task.Factory.StartNew(() =>
-            //{
+            var db = redis.GetDatabase();
+            const string LastOffSetKey = "last-comitted-offset";
             using (var consumer =
                 new ConsumerBuilder<Ignore, string>(config)
                     .SetStatisticsHandler((_, json) =>
@@ -131,6 +137,7 @@
                         consumer.Commit(msg);
                         var committedOffsets = consumer.Committed(new List<TopicPartition> { msg.TopicPartition }, TimeSpan.FromMinutes(1));
                         Console.WriteLine($"After Commit -> Last Offset Committed: {committedOffsets.First()?.Offset}");
+                        db.StringSet(LastOffSetKey, JsonConvert.SerializeObject(committedOffsets));
 
                         var wmAfterCommit = consumer.GetWatermarkOffsets(msg.TopicPartition);
 
@@ -138,10 +145,14 @@
                         Console.WriteLine($"After Commit -> Watermark Offsets: High -> {wmAfterCommit.High.Value} || Low -> {wmAfterCommit.Low.Value}");
                     }
                 }
-                catch (Exception)
+                catch (OperationCanceledException)
                 {
-                    throw;
+                    Console.WriteLine("Consumer will close.");
+                    consumer.Close();
                 }
+
+                var offsets = db.StringGet(LastOffSetKey);
+                Console.WriteLine($"Serialized Object -> {JsonConvert.SerializeObject(offsets)}");
 
                 //consumer.Consume();
 
@@ -149,7 +160,6 @@
 
                 // use TPL Dataflow or RxExtensions to create non-blocking consumer
             }
-            //}, TaskCreationOptions.LongRunning);
         }
     }
 }
