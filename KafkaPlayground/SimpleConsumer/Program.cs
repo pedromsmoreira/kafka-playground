@@ -43,7 +43,6 @@
                             Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine($"Consumer Statistics: {json}");
                             Console.ResetColor();
-
                         })
                         .Build())
                 {
