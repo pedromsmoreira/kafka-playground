@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
@@ -23,7 +24,7 @@
             var consumerConfig = new ConsumerConfig
             {
                 BootstrapServers = "localhost:9092",
-                GroupId = "non-blocking-consumer",
+                GroupId = "test-consumer",
                 EnableAutoCommit = false,
                 StatisticsIntervalMs = 5000,
                 SessionTimeoutMs = 6000,
@@ -52,7 +53,56 @@
                 cts.Cancel();
             };
 
-            StartConsumer(NonBlockingTopic, consumerConfig, cts, redis);
+
+            var watch = new Stopwatch();
+            Console.WriteLine($"Start Query Consumer");
+            watch.Start();
+
+            StartConsumerWithQueriesForOffsets(NonBlockingTopic, consumerConfig, cts, redis);
+            watch.Stop();
+
+            // Avg time to consume 10 msg with 500ms delay => 5.4sec -> this has the consumer startup time included
+            Console.WriteLine($"Timetaken Simple Consumer: {watch.ElapsedMilliseconds} ms");
+
+            // blocking consumer configs
+            var blockingConsumerConfig = new ConsumerConfig
+            {
+                BootstrapServers = "localhost:9092",
+                GroupId = "blocking-consumer",
+                EnableAutoCommit = false,
+                StatisticsIntervalMs = 5000,
+                SessionTimeoutMs = 6000,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnablePartitionEof = true
+            };
+
+            watch.Restart();
+
+            Console.WriteLine($"Start Blocking Consumer");
+            watch.Start();
+            await StartBlockingConsumer(NonBlockingTopic, blockingConsumerConfig, cts, redis);
+            watch.Stop();
+
+            // Avg time to consume 10 msg with 500ms delay => 10sec
+            Console.WriteLine($"Timetaken Blocking Consumer: {watch.ElapsedMilliseconds} ms");
+
+            Console.WriteLine($"Start Non Blocking Consumer");
+            var nonBlockingConsumerConfig = new ConsumerConfig
+            {
+                BootstrapServers = "localhost:9092",
+                GroupId = "non-blocking-consumer",
+                EnableAutoCommit = false,
+                StatisticsIntervalMs = 5000,
+                SessionTimeoutMs = 6000,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnablePartitionEof = true
+            };
+
+            watch.Restart();
+            StartNonBlockingConsumer(NonBlockingTopic, nonBlockingConsumerConfig, cts, redis);
+
+            // Avg time to consume 10 msg with 500ms delay => 5sec
+            Console.WriteLine($"Timetaken Non Blocking Consumer: {watch.ElapsedMilliseconds} ms");
         }
 
         private static async Task ProduceUntilCancelled(string topic, CancellationTokenSource cts, ProducerConfig producerConfig)
@@ -86,19 +136,10 @@
             while (i < 10);
         }
 
-        private static void StartConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts, ConnectionMultiplexer redis)
+        private static void StartNonBlockingConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts, ConnectionMultiplexer redis)
         {
             var db = redis.GetDatabase();
-            const string LastOffSetKey = "last-comitted-offset";
-            using (var consumer =
-                new ConsumerBuilder<Ignore, string>(config)
-                    .SetStatisticsHandler((_, json) =>
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"Consumer Statistics: {json}");
-                        Console.ResetColor();
-                    })
-                    .Build())
+            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
             {
                 consumer.Subscribe(topic);
 
@@ -117,7 +158,91 @@
                         {
                             Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
 
-                            continue;
+                            break;
+                        }
+
+                        Task.Run(
+                            () =>
+                        {
+                            Console.WriteLine($"Non Blocking Consumer -> Consumed: {msg.Message?.Value}");
+                            Task.Delay(TimeSpan.FromMilliseconds(500));
+                        });
+                        consumer.Commit(msg);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("Consumer will close.");
+                    consumer.Close();
+                }
+            }
+        }
+
+        private static async Task StartBlockingConsumer(string topic, ConsumerConfig config, CancellationTokenSource cts, ConnectionMultiplexer redis)
+        {
+            var db = redis.GetDatabase();
+            const string LastOffSetKey = "last-comitted-offset";
+            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
+            {
+                consumer.Subscribe(topic);
+
+                // on the first get it won't have any offsets stored since it gets the last cached offsets
+                var queryWatermarks = consumer.GetWatermarkOffsets(new TopicPartition(topic, new Partition(0)));
+
+                // here they are unset or they aren't cached  (High: -1001, Low: -1001)
+                Console.WriteLine($"Before Consumer and assigning offsets Watermark Offsets: High -> {queryWatermarks.High.Value} || Low -> {queryWatermarks.Low.Value}");
+                try
+                {
+                    while (!cts.IsCancellationRequested)
+                    {
+                        var msg = consumer.Consume(cts.Token);
+
+                        if (msg == null || msg.IsPartitionEOF || msg.Message == null)
+                        {
+                            Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
+
+                            break;
+                        }
+
+                        Console.WriteLine($"Blocking Consumer -> Consumed: {msg.Message?.Value}");
+                        await Task.Delay(TimeSpan.FromMilliseconds(500));
+                        consumer.Commit(msg);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("Consumer will close.");
+                    consumer.Close();
+                }
+
+                var offsets = db.StringGet(LastOffSetKey);
+                Console.WriteLine($"Serialized Object -> {JsonConvert.SerializeObject(offsets)}");
+            }
+        }
+
+        private static void StartConsumerWithQueriesForOffsets(string topic, ConsumerConfig config, CancellationTokenSource cts, ConnectionMultiplexer redis)
+        {
+            var db = redis.GetDatabase();
+            const string LastOffSetKey = "last-comitted-offset";
+            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
+            {
+                consumer.Subscribe(topic);
+
+                // on the first get it won't have any offsets stored since it gets the last cached offsets
+                var queryWatermarks = consumer.GetWatermarkOffsets(new TopicPartition(topic, new Partition(0)));
+
+                // here they are unset or they aren't cached  (High: -1001, Low: -1001)
+                Console.WriteLine($"Before Consumer and assigning offsets Watermark Offsets: High -> {queryWatermarks.High.Value} || Low -> {queryWatermarks.Low.Value}");
+                try
+                {
+                    while (!cts.IsCancellationRequested)
+                    {
+                        var msg = consumer.Consume(cts.Token);
+
+                        if (msg == null || msg.IsPartitionEOF || msg.Message == null)
+                        {
+                            Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
+                            break;
                         }
 
                         Console.WriteLine($"Consumed: {msg.Message?.Value}");
@@ -153,12 +278,6 @@
 
                 var offsets = db.StringGet(LastOffSetKey);
                 Console.WriteLine($"Serialized Object -> {JsonConvert.SerializeObject(offsets)}");
-
-                //consumer.Consume();
-
-                // store offsets in db (maybe redis for simplicity sake)
-
-                // use TPL Dataflow or RxExtensions to create non-blocking consumer
             }
         }
     }
