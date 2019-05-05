@@ -8,6 +8,7 @@
   
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="1.0.0" />
+    <PackageReference Include="Microsoft.Tpl.Dataflow" Version="4.5.24" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
     <PackageReference Include="Roslynator.Analyzers" Version="2.0.0">
       <PrivateAssets>all</PrivateAssets>
