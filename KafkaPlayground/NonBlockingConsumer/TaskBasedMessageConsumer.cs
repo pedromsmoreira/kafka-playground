@@ -37,7 +37,7 @@
                             hasStarted = true;
                         }
 
-                        if (msg == null || msg.IsPartitionEOF || msg.Message == null)
+                        if (msg?.IsPartitionEOF != false || msg.Message == null)
                         {
                             Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
                             sw.Stop();

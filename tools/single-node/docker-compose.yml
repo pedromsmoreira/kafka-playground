@@ -38,8 +38,4 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-
-  redis:
-    image: redis:3.2.6
-    ports:
-      - 6379:6379
+      KAFKA_NUM_PARTITIONS: 10

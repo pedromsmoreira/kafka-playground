@@ -38,7 +38,7 @@
                 EnableIdempotence = true
             };
 
-            await ProduceUntilCancelled(NonBlockingTopic, cts, producerConfig);
+            await ProduceUntilCancelled(NonBlockingTopic, cts, producerConfig).ConfigureAwait(false);
 
             Console.WriteLine($"Started consumer, Ctrl-C to stop consuming");
 
@@ -65,7 +65,7 @@
             };
 
             Console.WriteLine($"Start Blocking Consumer");
-            await SlowConsumer.StartBlockingConsumer(NonBlockingTopic, blockingConsumerConfig, cts, redis);
+            await SlowConsumer.StartBlockingConsumer(NonBlockingTopic, blockingConsumerConfig, cts, redis).ConfigureAwait(false);
 
             Console.WriteLine($"Start Non Blocking Consumer");
             var nonBlockingConsumerConfig = new ConsumerConfig
@@ -81,7 +81,6 @@
 
             TaskBasedMessageConsumer.StartNonBlockingConsumer(NonBlockingTopic, nonBlockingConsumerConfig, cts, redis);
 
-
             Console.WriteLine($"Start Dataflow Consumer");
             var dataflowConsumerConfig = new ConsumerConfig
             {
@@ -94,7 +93,7 @@
                 EnablePartitionEof = true
             };
 
-            await DataflowConsumer.StartDataflowConsumer(NonBlockingTopic, dataflowConsumerConfig, cts, redis);
+            await DataflowConsumer.StartDataflowConsumer(NonBlockingTopic, dataflowConsumerConfig, cts, redis).ConfigureAwait(false);
         }
 
         private static async Task ProduceUntilCancelled(string topic, CancellationTokenSource cts, ProducerConfig producerConfig)
@@ -114,7 +113,7 @@
                 {
                     try
                     {
-                        var report = await producer.ProduceAsync(topic, new Message<string, string> { Key = $"key-{i}", Value = $"{i}" });
+                        var report = await producer.ProduceAsync(topic, new Message<string, string> { Key = $"key-{i}", Value = $"{i}" }).ConfigureAwait(false);
 
                         Console.WriteLine($"delivered to: {report.TopicPartitionOffset}");
                     }

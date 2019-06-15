@@ -48,7 +48,7 @@
                             hasStarted = true;
                         }
 
-                        if (msg == null || msg.IsPartitionEOF || msg.Message == null)
+                        if (msg?.IsPartitionEOF != false || msg.Message == null)
                         {
                             Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
                             sw.Stop();
@@ -62,7 +62,7 @@
                             break;
                         }
 
-                        var r = await printBlock.SendAsync<string>(msg.Message.Value);
+                        var r = await printBlock.SendAsync<string>(msg.Message.Value).ConfigureAwait(false);
 
                         consumer.Commit(msg);
                     }
@@ -72,6 +72,7 @@
                     Console.WriteLine("Dataflow Consumer will close.");
                     consumer.Close();
                     printBlock.Complete();
+                    await printBlock.Completion;
                 }
 
                 //await printBlock.Completion;

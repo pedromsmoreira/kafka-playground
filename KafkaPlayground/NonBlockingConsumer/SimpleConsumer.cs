@@ -42,7 +42,7 @@
                             hasStarted = true;
                         }
 
-                        if (msg == null || msg.IsPartitionEOF || msg.Message == null)
+                        if (msg?.IsPartitionEOF != false || msg.Message == null)
                         {
                             Console.WriteLine($"Reached end of topic {msg.Topic}, partition {msg.Partition}, offset {msg.Offset}.");
                             sw.Stop();
@@ -63,11 +63,11 @@
                         Console.WriteLine($"Before Commit -> Watermark Offsets: High -> {wmAfterAssign.High.Value} || Low -> {wmAfterAssign.Low.Value}");
 
                         var beforeCommitOffsets = consumer.Committed(new List<TopicPartition> { msg.TopicPartition }, TimeSpan.FromMinutes(1));
-                        Console.WriteLine($"Before Commit -> Last Offset Committed: {beforeCommitOffsets.First()?.Offset}");
+                        Console.WriteLine($"Before Commit -> Last Offset Committed: {beforeCommitOffsets[0]?.Offset}");
 
                         consumer.Commit(msg);
                         var committedOffsets = consumer.Committed(new List<TopicPartition> { msg.TopicPartition }, TimeSpan.FromMinutes(1));
-                        Console.WriteLine($"After Commit -> Last Offset Committed: {committedOffsets.First()?.Offset}");
+                        Console.WriteLine($"After Commit -> Last Offset Committed: {committedOffsets[0]?.Offset}");
                         db.StringSet(LastOffSetKey, JsonConvert.SerializeObject(committedOffsets));
 
                         var wmAfterCommit = consumer.GetWatermarkOffsets(msg.TopicPartition);
